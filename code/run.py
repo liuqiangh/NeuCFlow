@@ -464,6 +464,7 @@ def run(dataset, hparams):
             dt_tr = t1_tr - t0_tr
             t0_tr = t1_tr
 
+            # 打印训练过程的loss等信息
             if hparams.print_train and batch_i % hparams.print_train_freq == 0:
                 if hparams.print_train_metric:
                     hit_1, hit_3, hit_5, hit_10, mr, mrr, max_r = train_metric
@@ -510,7 +511,7 @@ def run(dataset, hparams):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', default=None, choices=['FB237', 'FB237_v2', 'FB15K', 'WN18RR', 'WN18RR_v2', 'WN', 'YAGO310', 'NELL995'])
+    parser.add_argument('--dataset', default='NELL995', choices=['FB237', 'FB237_v2', 'FB15K', 'WN18RR', 'WN18RR_v2', 'WN', 'YAGO310', 'NELL995', 'OP', 'OP3'])
     parser.add_argument('--n_dims_sm', type=int, default=None)
     parser.add_argument('--n_dims', type=int, default=None)
     parser.add_argument('--batch_size', type=int, default=None)
@@ -542,6 +543,8 @@ if __name__ == '__main__':
     parser.add_argument('--test_analyze_attention', action='store_true', default=None)
     args = parser.parse_args()
 
+    # 这里是引用config.py里的函数
+    '''该程序重新指定了某参数的值，则用该值替换之前的'''
     default_parser = config.get_default_config(args.dataset)
     hparams = copy.deepcopy(default_parser.parse_args())
     for arg in vars(args):
@@ -562,6 +565,7 @@ if __name__ == '__main__':
                 os.makedirs(dir_name)
             run(ds, hparams)
     else:
+        # ds为datasets这个class的实例
         ds = getattr(datasets, hparams.dataset)()
         print(ds.name)
         if hparams.test_output_attention:

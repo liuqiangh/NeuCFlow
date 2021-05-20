@@ -3,23 +3,31 @@ import glob
 
 import numpy as np
 import matplotlib
-matplotlib.use('TkAgg')
+
+# matplotlib.use('TkAgg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
+plt.rcParams['pdf.fonttype'] = 42
+plt.rcParams['font.sans-serif'] = ['FangSong']
+plt.rcParams['axes.unicode_minus'] = False
 import matplotlib.colors as colors
 import networkx as nx
 import argparse
 
 import datasets
 
-def draw_a_graph(filename, dataset, topk_all=None, topk_per_step=None, font_size=4, node_size=100, edge_width=0.5, disable_draw=False):
+
+def draw_a_graph(filename, dataset, topk_all=None, topk_per_step=None, font_size=4, node_size=100, edge_width=0.5,
+                 disable_draw=False):
     nodes_per_step = []
     rels_dct = {}
     edges_set = {}
-    head, relation, tail = os.path.basename(filename)[len('test_epoch1_'):].split('.')[0].split('->')
+    head, relation, tail = os.path.basename(filename)[len('test_epoch1_'):].split('.')[0].split('-_')
     head = head.split('(')[0]
     relation = relation.split('(')[0]
     tail = tail.split('(')[0]
-    with open(filename) as fin:
+    with open(filename, encoding='utf-8') as fin:
         mode = None
         for line in fin.readlines():
             line = line.strip()
@@ -36,11 +44,17 @@ def draw_a_graph(filename, dataset, topk_all=None, topk_per_step=None, font_size
                         node_att = float(sp2[1])
                         max_att = max(max_att, node_att)
                         sp2 = sp2[0].split('(')
+                        # 解析节点的id、名称
                         node_id = sp2[0]
-                        node_name = sp2[1][:-1]
+                        # 有的药名里本身包含括号，比如  沈阳东陵哈西奈德溶液(哈西奈德溶液)
+                        if len(sp2) == 2:
+                            node_name = sp2[1][:-1]
+                        elif len(sp2) == 3:
+                            node_name = sp2[1] + '(' + sp2[2][:-1]
                         nodes.append((node_id, node_name, node_att))
 
                     if topk_per_step is not None:
+                        # 按照attention值排序
                         sorted(nodes, key=lambda node: - node[2])
                         nodes = nodes[:topk_per_step]
 
@@ -55,7 +69,9 @@ def draw_a_graph(filename, dataset, topk_all=None, topk_per_step=None, font_size
                         node_id2 = sp2[2].split('(')[0]
                         rel_id = sp2[1].split('(')[0]
                         rel_name = sp2[1].split('(')[1][:-1]
+                        # 构建了关系字典
                         rels_dct[rel_id] = rel_name
+                        # 三元组集合中都用id表示
                         edges.append((node_id1, rel_id, node_id2))
                         if (node_id1, rel_id, node_id2) not in edges_set:
                             edges_set[(node_id1, rel_id, node_id2)] = len(edges_set)
@@ -69,7 +85,7 @@ def draw_a_graph(filename, dataset, topk_all=None, topk_per_step=None, font_size
             node_name = v[0]
             node_att = v[1]
             att_h = node_att * np.power(0.9, t)
-            att_t = node_att * np.power(0.9, n_steps-1-t)
+            att_t = node_att * np.power(0.9, n_steps - 1 - t)
 
             att = 0.5 - att_h / 2 if att_h > att_t else 0.5 + att_t / 2
             node_att = nodes[node_id][1] if node_id in nodes else 0.5
@@ -81,6 +97,7 @@ def draw_a_graph(filename, dataset, topk_all=None, topk_per_step=None, font_size
         sorted(nodes_all, key=lambda node: - node[1]['att'])
         nodes_all = [(i, e[1]) for i, e in enumerate(nodes_all[:topk_all])]
 
+    # id是节点在训练过程中保存下来的，i是节点在nodes_all中的索引
     id2i = {node[1]['id']: node[0] for node in nodes_all}
     i2id = {node[0]: node[1]['id'] for node in nodes_all}
 
@@ -107,7 +124,7 @@ def draw_a_graph(filename, dataset, topk_all=None, topk_per_step=None, font_size
             c = np.array(cols)
             vmin = c.min()
             vmax = max(c.max(), min_max)
-            sizes = [size * 2.5 if nodes[i][1]['id'] == head or nodes[i][1]['id'] == tail else size * (1+a*inflate)
+            sizes = [size * 2.5 if nodes[i][1]['id'] == head or nodes[i][1]['id'] == tail else size * (1 + a * inflate)
                      for i, a in enumerate(node_atts)]
             return cols, vmin, vmax, sizes
 
@@ -117,30 +134,32 @@ def draw_a_graph(filename, dataset, topk_all=None, topk_per_step=None, font_size
 
         def get_edge_params(edges, nodes, width=1., inflate=0):
             node_atts = [n[1]['att'] for n in nodes]
-            edge_atts = [ 0.5 - (abs(node_atts[e[0]] - 0.5) + abs(node_atts[e[1]] - 0.5)) / 2.
-                         if (node_atts[e[0]] + node_atts[e[1]]) / 2. < 0.5  else
-                          0.5 + (abs(node_atts[e[0]] - 0.5) + abs(node_atts[e[1]] - 0.5)) / 2.
+            edge_atts = [0.5 - (abs(node_atts[e[0]] - 0.5) + abs(node_atts[e[1]] - 0.5)) / 2.
+                         if (node_atts[e[0]] + node_atts[e[1]]) / 2. < 0.5 else
+                         0.5 + (abs(node_atts[e[0]] - 0.5) + abs(node_atts[e[1]] - 0.5)) / 2.
                          for e in edges]
             cols = edge_atts
             c = np.array(cols)
             vmin = c.min()
             vmax = c.max()
-            widths = [width * (1+a*inflate) for a in edge_atts]
+            widths = [width * (1 + a * inflate) for a in edge_atts]
             return cols, vmin, vmax, widths
 
         e_cols, e_vmin, e_vmax, widths = get_edge_params(edges_all, nodes_all, width=edge_width)
         nx.draw_networkx_edges(graph, pos, width=widths, edge_color=e_cols, edge_vmin=e_vmin, edge_vmax=e_vmax,
                                edge_cmap=attcmp, arrowstyle='->', alpha=0.7)
 
-        nx.draw_networkx_labels(graph, pos, labels={nd[0]:nd[1]['name'] for nd in nodes_all},
+        nx.draw_networkx_labels(graph, pos, labels={nd[0]: nd[1]['name'] for nd in nodes_all},
                                 font_size=font_size, font_color='k')
 
         assert nodes_all[id2i[head]][1]['name'] == dataset.id2entity[int(head)]
         if tail not in id2i:
-            plt.title('{} - {} (missed)'.format(head, tail))
-        # else:
-        #     assert nodes_all[id2i[tail]][1]['name'] == dataset.id2entity[int(tail)]
-        #     plt.title('{} - {}'.format(head, tail))
+            plt.title('{} - {} - {} (missed)'.format(dataset.id2entity[int(head)], dataset.id2relation[int(relation)],
+                                                     dataset.id2entity[int(tail)]), fontsize=5)
+        else:
+            assert nodes_all[id2i[tail]][1]['name'] == dataset.id2entity[int(tail)]
+            plt.title('{} - {} - {}'.format(dataset.id2entity[int(head)], dataset.id2relation[int(relation)],
+                                                     dataset.id2entity[int(tail)]), fontsize=5)
 
     edges = [(i2id[e[0]], e[2]['rel_id'], i2id[e[1]]) for e in edges_all]
     return head, relation, tail, edges
@@ -150,6 +169,7 @@ def draw(dataset, dirpath, new_dirpath):
     if not os.path.exists(new_dirpath):
         os.mkdir(new_dirpath)
 
+    # glob.glob获取路径名下的所有符号的路径文件列表，*表示0个或者多个字符
     for filename in glob.glob(os.path.join(dirpath, '*.txt')):
         try:
             print(filename)
@@ -162,22 +182,24 @@ def draw(dataset, dirpath, new_dirpath):
             plt.savefig(os.path.join(new_dirpath, os.path.basename(filename)[:-4] + '.pdf'), format='pdf')
             plt.close()
 
-            head, rel, tail, edges = draw_a_graph(filename, dataset, topk_per_step=3, font_size=5, node_size=180, edge_width=1)
+            head, rel, tail, edges = draw_a_graph(filename, dataset, topk_per_step=3, font_size=5, node_size=180,
+                                                  edge_width=1)
             with open(os.path.join(new_dirpath, os.path.basename(filename)), 'w') as fout:
                 fout.write('{}\t{}\t{}\n\n'.format(dataset.id2entity[int(head)],
-                                                     dataset.id2relation[int(rel)],
-                                                     dataset.id2entity[int(tail)]))
+                                                   dataset.id2relation[int(rel)],
+                                                   dataset.id2entity[int(tail)]))
                 for h, r, t in edges:
                     fout.write('{}\t{}\t{}\n'.format(dataset.id2entity[int(h)],
-                                                       dataset.id2relation[int(r)],
-                                                       dataset.id2entity[int(t)]))
+                                                     dataset.id2relation[int(r)],
+                                                     dataset.id2entity[int(t)]))
         except IndexError:
             print('Cause `IndexError` for file `{}`'.format(filename))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', default=None,
-                        choices=['FB237', 'FB237_v2', 'FB15K', 'WN18RR', 'WN18RR_v2', 'WN', 'YAGO310', 'NELL995'])
+                        choices=['FB237', 'FB237_v2', 'FB15K', 'WN18RR', 'WN18RR_v2', 'WN', 'YAGO310', 'NELL995', 'OP', 'OP3'])
     args = parser.parse_args()
 
     ds = getattr(datasets, args.dataset)()

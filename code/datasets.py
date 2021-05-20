@@ -8,11 +8,13 @@ class Dataset(object):
     def __init__(self, train_path, valid_path, test_path, graph_path=None, test_candidates_path=None,
                  do_reverse=False, do_reverse_on_graph=False, get_reverse=None, has_reverse=False,
                  test_paths=None, test_candidates_paths=None):
+        # 读取文件中的三元组
         train = self._load_triple_file(train_path)
         valid = self._load_triple_file(valid_path)
         test = self._load_triple_file(test_path)
         graph = self._load_triple_file(graph_path) if graph_path is not None else train
 
+        # 导入sort_test.pairs文件
         if test_candidates_path is not None:
             test_candidates = self._load_test_candidates_file(test_candidates_path)
         elif test_candidates_paths is not None:
@@ -26,7 +28,6 @@ class Dataset(object):
                            for path in test_paths}
         else:
             test_by_rel = None
-
 
         if do_reverse:
             train = self._add_reverse_triples(train)
@@ -45,6 +46,7 @@ class Dataset(object):
         if do_reverse or do_reverse_on_graph or has_reverse:
             self.reversed_rel_dct = self._get_reversed_relation_dict(self.relation2id, get_reverse=get_reverse)
 
+        # 将实体和关系转换成id
         self.train = self._convert_to_id(train)
         self.valid = self._convert_to_id(valid)
         self.test = self._convert_to_id(test)
@@ -64,7 +66,7 @@ class Dataset(object):
 
     def _load_triple_file(self, filepath):
         triples = []
-        with open(filepath) as fin:
+        with open(filepath, encoding='utf-8') as fin:
             for line in fin:
                 h, r, t = line.strip().split('\t')
                 triples.append((h, t, r))
@@ -84,6 +86,7 @@ class Dataset(object):
     def _make_dict(self, triples):
         ent2id, rel2id = {}, {}
         id2ent, id2rel = {}, {}
+        # 按顺序给节点和关系编码
         for h, t, r in triples:
             ent2id.setdefault(h, len(ent2id))
             id2ent[ent2id[h]] = h
@@ -97,6 +100,7 @@ class Dataset(object):
         return triples + [(t, h, '_' + r) for h, t, r in triples]
 
     def _get_reversed_relation_dict(self, relation2id, get_reverse=None):
+        # 关系A和其相反关系_A之间的id对应表
         if get_reverse is None:
             get_reverse = lambda r: '_' + r if r[0] != '_' else r[1:]
         return {id: relation2id[get_reverse(rel)] for rel, id in relation2id.items()
@@ -147,6 +151,30 @@ class FB15K(Dataset):
         test_path = os.path.join(self.path, 'test')
         super(FB15K, self).__init__(train_path, valid_path, test_path,
                                     do_reverse=do_reverse, do_reverse_on_graph=do_reverse_on_graph)
+
+
+class OP(Dataset):
+    path = '../data/KBC/OP'
+
+    def __init__(self, do_reverse=True, do_reverse_on_graph=True):
+        self.name = 'OP'
+        train_path = os.path.join(self.path, 'train')
+        valid_path = os.path.join(self.path, 'valid')
+        test_path = os.path.join(self.path, 'test')
+        super(OP, self).__init__(train_path, valid_path, test_path,
+                                 do_reverse=do_reverse, do_reverse_on_graph=do_reverse_on_graph)
+
+
+class OP3(Dataset):
+    path = '../data/KBC/OP3'
+
+    def __init__(self, do_reverse=True, do_reverse_on_graph=True):
+        self.name = 'OP3'
+        train_path = os.path.join(self.path, 'train')
+        valid_path = os.path.join(self.path, 'valid')
+        test_path = os.path.join(self.path, 'test')
+        super(OP3, self).__init__(train_path, valid_path, test_path,
+                                  do_reverse=do_reverse, do_reverse_on_graph=do_reverse_on_graph)
 
 
 class WN(Dataset):

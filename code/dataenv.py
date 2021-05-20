@@ -365,6 +365,7 @@ class DataEnv(object):
             self.filter_pool[(head, rel)].add(tail)
 
     def get_train_batcher(self, remove_all_head_tail_edges=True):
+        # partial可以固定函数get_train_batch的参数
         return partial(self.data_feeder.get_train_batch, self.train, self.graph,
                        remove_all_head_tail_edges=remove_all_head_tail_edges)
 
